@@ -1,2 +1,2 @@
 # Analysis-of-Tropical-Atmosphere-Ocean-Data
-## Supervised & Unsupervised learning in R
+Supervised & Unsupervised learning in R
