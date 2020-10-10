@@ -1,0 +1,133 @@
+---
+title: "A4-Hierarchical-Clustering"
+author: "Pengcheng Xu"
+date: "3/25/2020"
+output: html_document
+---
+
+```{r}
+library(tidyverse)
+library(lubridate)
+library(readxl)
+library(rsample) 
+library(car)
+library(ggplot2)
+library(caret)
+library(dummies)
+library(leaps)
+library(zoo)
+library(BBmisc)
+library(rpart)
+library(rpart.plot)
+library(caret)
+library(randomForest)
+library(adabag)
+```
+
+```{r}
+#Read in data and select data from top 10 buoys
+df1 <- read_csv("topten.csv")
+buoys <- c(2,48,6,12,28,46,49,43,27,71)
+df = df1%>% filter(buoy %in% buoys)
+```
+
+```{r}
+predictorsprocessing <- df %>% 
+  select(-buoy, -date)
+predictorsprocessing<-predictorsprocessing[complete.cases(predictorsprocessing), ]
+```
+
+```{r}
+# Creating squared terms
+df_elnino_predictors_squared <- predictorsprocessing^2
+colnames(df_elnino_predictors_squared) <- paste(colnames(df_elnino_predictors_squared),"squared",sep = "_")
+```
+
+```{r}
+#Creating interaction terms
+df_elnino_predictors_int <- as.data.frame(model.matrix( ~.^2, data=predictorsprocessing)) %>% 
+  select(-`(Intercept)`) 
+```
+
+```{r}
+temp_2 <- cbind(df_elnino_predictors_int,
+                     df_elnino_predictors_squared)
+
+temp_4 <-  data.frame(scale(temp_2))
+```
+
+```{r}
+d <- dist(temp_4, method = "euclidean")
+```
+
+```{r}
+hc1.2 <- hclust(d, method = "single")
+plot(hc1.2, hang = -1, ann = FALSE)
+```
+
+```{r}
+memb1 <- cutree(hc1.2, k = 10)
+memb1
+cat(memb1)
+hist(memb1)
+```
+
+```{r}
+hc2.2 <- hclust(d, method = "average")
+plot(hc2.2, hang = -1, ann = FALSE)
+```
+
+```{r}
+memb2.2 <- cutree(hc2.2, k = 10)
+memb2.2
+cat(memb2.2)
+hist(memb2.2)
+```
+
+```{r}
+hc3.2 <- hclust(d, method = "median")
+plot(hc3.2, hang = -1, ann = FALSE)
+```
+
+```{r}
+memb3.2 <- cutree(hc3.2, k = 10)
+memb3.2
+cat(memb3.2)
+hist(memb3.2)
+```
+
+```{r}
+hc4.2 <- hclust(d, method = "complete")
+plot(hc4.2, hang = -1, ann = FALSE)
+```
+
+```{r}
+memb4.2 <- cutree(hc4.2, k = 10)
+memb4.2
+cat(memb4.2)
+hist(memb4.2)
+```
+
+```{r}
+hc5.2 <- hclust(d, method = "centroid")
+plot(hc5.2, hang = -1, ann = FALSE)
+```
+
+```{r}
+memb5.2 <- cutree(hc5.2, k = 10)
+memb5.2
+cat(memb5.2)
+hist(memb5.2)
+```
+
+```{r}
+hc6.2 <- hclust(d, method = "ward.D")
+plot(hc6.2, hang = -1, ann = FALSE)
+```
+
+```{r}
+memb6.2 <- cutree(hc6.2, k = 2)
+memb6.2
+cat(memb6.2)
+hist(memb6.2)
+```

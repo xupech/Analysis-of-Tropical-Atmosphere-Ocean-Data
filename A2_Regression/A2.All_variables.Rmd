@@ -1,0 +1,113 @@
+---
+title: "A2: Regression Analysis"
+author: "Team Invincibles"
+date: "3/3/2020"
+output: html_document
+---
+
+```{r loadpackages, message=FALSE, warning=FALSE}
+library(tidyverse)
+library(lubridate)
+library(readxl)
+library(rsample) 
+library(car)
+library(ggplot2)
+library(caret)
+library(dummies)
+library(leaps)
+library(zoo)
+library(BBmisc)
+# Set seeed
+set.seed(123)
+
+# Set working directory
+setwd("~/Desktop")
+
+# Import the the data
+df1 <- read_csv("alldata_with_dummies.csv")
+```
+
+```{r}
+  df1$Zonal.Winds<- normalize(df1$Zonal.Winds, method = "standardize", range = c(0, 1), margin = 2, on.constant = "quiet")
+  df1$Meridional.Winds<-normalize(df1$Meridional.Winds, method = "standardize", range = c(0, 1), margin = 1L, on.constant = "quiet") 
+  df1$Air.Temp<-normalize(df1$Air.Temp, method = "standardize", range = c(0, 1), margin = 1L, on.constant = "quiet")   
+  df1$Humidity<-normalize(df1$Humidity, method = "standardize", range = c(0, 1), margin = 1L, on.constant = "quiet")  
+  df1$Sea.Surface.Temp<-normalize(df1$Sea.Surface.Temp, method = "standardize", range = c(0, 1), margin = 1L, on.constant = "quiet")
+```
+
+# Clean and sample data
+```{r import_data}
+# Select relevant variables
+df_elnino <- df1 %>% 
+  rename(zonal_winds  = `Zonal.Winds`,
+         meridional_winds = `Meridional.Winds`,
+         air_temp = `Air.Temp`,
+         sea_surface_temp = `Sea.Surface.Temp`,
+         humidity = `Humidity`) %>%
+  mutate(date = ymd(`New.Date`)) %>% 
+  filter(buoy ==2) %>% 
+  select(-X1, -Observation,-Latitude, -Longitude, -diff, -date, -`New.Date`, -buoy, -`MonthN`, -new_elnino_12)
+```
+
+```{r}
+# Create squared and interaction terms
+df_elnino_predictors1 <- df_elnino %>% 
+  select(-sea_surface_temp, -new_elnino_1, -new_elnino_2,-new_elnino_3,
+-new_elnino_4, -new_elnino_5, -new_elnino_6, -new_elnino_7, -new_elnino_8,
+-new_elnino_9, -new_elnino_10, -new_elnino_11)
+# Select the y variable
+df_elnino_y <- df_elnino %>% 
+  select(sea_surface_temp)
+
+# Real all predictors
+df_elnino_predictors <- df_elnino %>% 
+  select(-sea_surface_temp, -zonal_winds, -meridional_winds, -humidity, -air_temp)
+
+# Square of predictors
+df_elnino_predictors_squared <- df_elnino_predictors1^2
+colnames(df_elnino_predictors_squared) <- paste(colnames(df_elnino_predictors_squared),"squared",sep = "_")
+
+# All interactions of predictors
+df_elnino_predictors_int <- as.data.frame(model.matrix( ~.^2, data=df_elnino_predictors1)) %>% 
+  select(-`(Intercept)`) 
+
+# All predictors and y
+df_elnino_2 <- cbind(df_elnino_y, df_elnino_predictors, df_elnino_predictors_int,
+                     df_elnino_predictors_squared)
+
+write.csv(df_elnino_2, file = 'regression')
+# Sampling
+# Sampling: 75% Training data and 25% Testing data
+df_elnino_split <- initial_split(df_elnino_2, prop = .75)
+df_elnino_train <- training(df_elnino_split)
+df_elnino_test  <- testing(df_elnino_split)
+```
+
+```{r}
+write.csv(df_elnino_2, file = 'regression')
+```
+# Regression Analysis
+```{r regression}
+lm1 <- lm(sea_surface_temp ~., data = df_elnino_train)
+summary(lm1)
+
+# Find the best model
+best_mod <- step(lm1, direction = "backward")
+summary(best_mod)
+
+# Check for multicolinearity
+vif_best_mod <- vif(best_mod)
+print(vif_best_mod)
+
+vif.df <- vif_best_mod
+write.csv(vif.df,"vif.df.csv")
+# plot(best_mod)
+
+# Prediction
+# predict values for test data
+pred <- predict(best_mod, df_elnino_test)
+
+# RMSPE
+RMSPE <- RMSE(pred, df_elnino_test$sea_surface_temp)
+RMSPE
+```

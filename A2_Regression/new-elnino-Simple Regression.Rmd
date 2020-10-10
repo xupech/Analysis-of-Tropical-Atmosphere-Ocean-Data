@@ -1,0 +1,164 @@
+---
+title: "alldata_with_dummies"
+author: "Hao Long"
+date: "March 3, 2020"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+library(tidyverse)
+library(forecast)
+library(zoo)
+library(leaps)
+library(dplyr)
+library(dummies)
+```
+
+
+## Simpliest Model without Removing Dummies
+We randomly parted the training and validation sets. The training set originally included 1500 data points and the validation set included 798 data points. All four variables' p-values are close to 0. They can be used as predictors because they are statistically significant. Thereby, we regressed "Sea.Surface.Temp" on four independent variables: "Zonal.Winds", "Meridional.Winds", "Humidity", and "Air.Temp."  
+
+```{r cars}
+new_elnino <- read.csv("new_elnino.csv")
+
+new_elnino <-  new_elnino %>% 
+  filter (buoy == 2)
+new_elnino <- transform(new_elnino, `New Date` = as.Date(as.character(`New Date`), "%Y%m%d"))
+new_elnino$MonthN <- as.numeric(format(as.Date(new_elnino$New.Date),"%m")) # Month's number
+new_elnino <- cbind(new_elnino, dummy(new_elnino$MonthN, sep = "_"))
+
+########## Data partition
+set.seed(1)  # set seed for reproducing the partition
+train.index <- sample(c(1:2298), 1500)  
+selected.var <- c(5,6,7,8,9)
+train.t <- new_elnino[train.index, selected.var]
+valid.t <- new_elnino[-train.index, selected.var]
+
+########## Regression
+linearmodel <- lm(Sea.Surface.Temp ~ Zonal.Winds + Meridional.Winds + Humidity + Air.Temp, data = train.t)
+options(scipen = 999)
+summary(linearmodel)
+vif(linearmodel)
+
+##########  Prediction
+linearmodel.pred <- predict(linearmodel, valid.t)
+all.residuals <- valid.t$Sea.Surface.Temp - linearmodel.pred
+# Adjusted R Squared: 0.9602
+# RMSE: 0.4092914
+accuracy(linearmodel.pred, valid.t$Sea.Surface.Temp)
+
+##########  Residuals plotting
+hist(all.residuals, breaks = 25, xlab = "Residuals", main = "")
+par(mfrow = c(2, 2))
+plot(linearmodel)
+
+```
+
+
+## Simpliest Model after Removing Dummies
+By plotting the residuals from the simplies model, we discovered numerous residuals and eventually removed 87 data from the training set.
+
+Adjusted R-squared: 0.9602
+RMSE: 0.4092914
+
+```{r}
+new_elnino <- read.csv("new_elnino.csv")
+
+new_elnino <-  new_elnino %>% 
+  filter (buoy == 2)
+new_elnino <- transform(new_elnino, `New Date` = as.Date(as.character(`New Date`), "%Y%m%d"))
+new_elnino$MonthN <- as.numeric(format(as.Date(new_elnino$New.Date),"%m")) # Month's number
+new_elnino <- cbind(new_elnino, dummy(new_elnino$MonthN, sep = "_"))
+
+########## Trend and seasonality exploration
+# full dataset 19900501 - 19980609
+# plot(new_elnino$`Sea Surface Temp`)
+# the series has some seasonality. Because the data are missing, it's hard to choose a frequency
+# new_elnino.ts <- ts(new_elnino$`Sea Surface Temp`, frequency = 280)
+# decomposedRes <- decompose(new_elnino.ts, "additive")
+# plot (decomposedRes)
+
+########## Data partition
+set.seed(1)  # set seed for reproducing the partition
+train.index <- sample(c(1:2298), 1500)  
+selected.var <- c(5,6,7,8,9)
+train.t <- new_elnino[train.index, selected.var]
+valid.t <- new_elnino[-train.index, selected.var]
+
+########## Eliminate outliers
+train.t <- train.t[-c(681,319,1392,609,1443,792,919,781,1391,872,520,718,481,694,461,812,1028,920,976,1169,1026,621,
+                      159,62,390,633,545,1017,1461,314,710,574,930,1134,116,158,351,306,839,391,1490,793,1102,1395,625,
+                      1151,1094,405,1050,1481,748,43,869,1086,787,968,290,412,927,760,426,222,631,387,1054,
+                      798,601,602,830,398,851,1449,638,525,52,953,211,1417,1231,118,104,1474,886,498,109,1434,825),]
+
+########## Regression
+linearmodel <- lm(Sea.Surface.Temp ~ Zonal.Winds + Meridional.Winds + Humidity + Air.Temp, data = train.t)
+options(scipen = 999)
+summary(linearmodel)
+vif(linearmodel)
+
+##########  Prediction
+linearmodel.pred <- predict(linearmodel, valid.t)
+all.residuals <- valid.t$Sea.Surface.Temp - linearmodel.pred
+# Adjusted R Squared: 0.9602
+# RMSE: 0.4092914
+accuracy(linearmodel.pred, valid.t$Sea.Surface.Temp)
+
+##########  Residuals plotting
+hist(all.residuals, breaks = 25, xlab = "Residuals", main = "")
+par(mfrow = c(2, 2))
+plot(linearmodel)
+```
+
+ 
+## A Model after Removing Outliers with Added Monthly Dummy Variables
+Although the data was not collected evenly every year, there might be seasonality in the series. We added monthly dummy variables in our dataset and ran the regression with dummies. We removed the same 73 observations from the training set. The removed data accounts for only 5% of the total training data. It's reasonable because we have not neglected too much data and we have still captured most of the information. 
+
+Adjusted R-squared: 0.9638
+RMSE: 0.39707
+
+The main four variables' coefficients differ from the best model without dummy variables, but mostly they are aligned with the previous best model's coefficients. We removed the "January dummy" to avoid the dummy variable trap. The coefficients of dummies in April and May have negative values. These months may be relatively cooler in a year. Also, it seems that the sea surface temperature was still quite low just before the summer. This may be caused by the water temperature lag compared to the continent temperature. In these months, the value of dependent variable, sea surface temperature, should be reduced. August, September and October were the months with the highest temperature. The dummy coefficients in these months have the highest positive values. Note that the buoy traveled around the equatorial area. The temperature seasonal variance should be significantly lower than other places on the earth.
+
+```{r}
+
+new_elnino <- read.csv("new_elnino.csv")
+
+new_elnino <-  new_elnino %>% 
+  filter (buoy == 2)
+new_elnino <- transform(new_elnino, `New Date` = as.Date(as.character(`New Date`), "%Y%m%d"))
+new_elnino$MonthN <- as.numeric(format(as.Date(new_elnino$New.Date),"%m")) # Month's number
+new_elnino <- cbind(new_elnino, dummy(new_elnino$MonthN, sep = "_"))
+
+########## Data partition
+set.seed(1)  # set seed for reproducing the partition
+train.index <- sample(c(1:2298), 1500)  
+
+selected.var.new <- c(5,6,7,8,9,14,15,16,17,18,19,20,21,22,23,24)
+train.t.new <- new_elnino[train.index, selected.var.new]
+valid.t.new <- new_elnino[-train.index, selected.var.new]
+
+# Eliminate same outliers
+train.t.new <- train.t.new[-c(681,319,1392,609,1443,792,919,781,1391,872,520,718,481,694,461,812,1028,920,976,1169,1026,621,
+                              159,62,390,633,545,1017,1461,314,710,574,930,1134,116,158,351,306,839,391,1490,793,1102,1395,625,
+                              1151,1094,405,1050,1481,748,43,869,1086,787,968,290,412,927,760,426,222,631,387,1054,
+                              798,601,602,830,398,851,1449,638,525,52,953,211,1417,1231,118,104,1474,886,498,109,1434,825),]
+
+# Regression
+linearmodel.new <- lm(Sea.Surface.Temp ~ Zonal.Winds + Meridional.Winds + Humidity + Air.Temp 
+                      +new_elnino_2+new_elnino_3+new_elnino_4+new_elnino_5+new_elnino_6+new_elnino_7
+                      +new_elnino_8+new_elnino_9+new_elnino_10+new_elnino_11+new_elnino_12, data = train.t.new)
+options(scipen = 999)
+summary(linearmodel.new)
+
+linearmodel.new.pred <- predict(linearmodel.new, valid.t.new)
+all.residuals.new <- valid.t.new$Sea.Surface.Temp - linearmodel.new.pred
+
+# Adjusted R Squared: 0.9638
+
+# RMSE: 0.3970702
+accuracy(linearmodel.new.pred, valid.t.new$Sea.Surface.Temp)
+
+par(mfrow = c(2, 2))
+plot(linearmodel.new) 
+```
+

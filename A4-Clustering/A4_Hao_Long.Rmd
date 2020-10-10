@@ -1,0 +1,175 @@
+---
+title: "A4"
+author: "Hao Long"
+date: "March 26, 2020"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+library(tidyverse)
+library(forecast)
+library(zoo)
+library(leaps)
+library(plyr)
+library(dplyr)
+library(dummies)
+library(modeest)
+library(qwraps2)
+library(GGally)
+library(gplots)
+```
+
+## Statistics: Dry season cluster
+```{r cars}
+data <- read_csv("unstandardized.data.csv")
+data_dry_season <-  data %>% 
+  filter (Cluster_type == 1)
+#new_elnino_buoy2 <- transform(new_elnino_buoy2, `New Date` = as.Date(as.character(`New Date`), "%Y%m%d"))
+#new_elnino_buoy2$MonthN <- as.numeric(format(as.Date(new_elnino_buoy2$New.Date),"%m")) # Month's number
+#new_elnino_buoy2 <- cbind(new_elnino_buoy2, dummy(new_elnino_buoy2$MonthN, sep = "_"))
+
+ZonalWinds =
+  c("Min" =  min(data_dry_season$zonal_winds),
+       "Max" =  max(data_dry_season$zonal_winds),
+       "Mean" =  mean(data_dry_season$zonal_winds),
+       "Median" =  median(data_dry_season$zonal_winds),
+ #      "Mode" =  mfv(data_dry_season$zonal_winds),
+       "Sd" =  sd(data_dry_season$zonal_winds),
+       "Var" =  var(data_dry_season$zonal_winds))
+
+MeridionalWinds =
+  c("Min" =  min(data_dry_season$meridional_winds),
+       "Max" =  max(data_dry_season$meridional_winds),
+       "Mean" =  mean(data_dry_season$meridional_winds),
+       "Median" =  median(data_dry_season$meridional_winds),
+  #     "Mode" =  mfv(data_dry_season$meridional_winds),
+       "Sd" =  sd(data_dry_season$meridional_winds),
+       "Var" =  var(data_dry_season$meridional_winds))
+
+Humidity =
+  c("Min" =  min(data_dry_season$Humidity),
+       "Max" =  max(data_dry_season$Humidity),
+       "Mean" =  mean(data_dry_season$Humidity),
+       "Median" =  median(data_dry_season$Humidity),
+  #     "Mode" =  mfv(data_dry_season$Humidity),
+       "Sd" =  sd(data_dry_season$Humidity),
+       "Var" =  var(data_dry_season$Humidity))
+
+AirTemp =
+  c("Min" =  min(data_dry_season$air_temp),
+       "Max" =  max(data_dry_season$air_temp),
+       "Mean" =  mean(data_dry_season$air_temp),
+       "Median" =  median(data_dry_season$air_temp),
+  #     "Mode" =  mfv(data_dry_season$air_temp),
+       "Sd" =  sd(data_dry_season$air_temp),
+       "Var" =  var(data_dry_season$air_temp))
+
+SeaSurfaceTemp =
+  c("Min" =  min(data_dry_season$sea_surface_temp),
+       "Max" =  max(data_dry_season$sea_surface_temp),
+       "Mean" =  mean(data_dry_season$sea_surface_temp),
+       "Median" =  median(data_dry_season$sea_surface_temp),
+  #     "Mode" =  mfv(data_dry_season$sea_surface_temp),
+       "Sd" =  sd(data_dry_season$sea_surface_temp),
+       "Var" =  var(data_dry_season$sea_surface_temp))
+
+summary <- cbind(ZonalWinds, MeridionalWinds, Humidity, AirTemp, SeaSurfaceTemp)
+summary <- round(summary, digits=2)
+
+```
+
+## Plots: Dry season cluster
+```{r pressure, echo=FALSE}
+data <- read_csv("unstandardized.data.csv")
+data_wet_season <-  data %>% 
+  filter (Cluster_type == 1)
+
+ggplot(data_wet_season, aes(y=zonal_winds)) + geom_boxplot(outlier.colour = "red")+ggtitle("Wet Season") + theme(axis.text.x=element_blank(),axis.ticks.x=element_blank())
+ggplot(data_wet_season, aes(y=meridional_winds)) + geom_boxplot(outlier.colour = "red")+ggtitle("Wet Season")+ theme(axis.text.x=element_blank(),axis.ticks.x=element_blank())
+ggplot(data_wet_season, aes(y=Humidity)) + geom_boxplot(outlier.colour = "red")+ggtitle("Wet Season")+ theme(axis.text.x=element_blank(),axis.ticks.x=element_blank())
+ggplot(data_wet_season, aes(y=air_temp)) + geom_boxplot(outlier.colour = "red")+ggtitle("Wet Season")+ theme(axis.text.x=element_blank(),axis.ticks.x=element_blank())
+ggplot(data_wet_season, aes(y=sea_surface_temp)) + geom_boxplot(outlier.colour = "red")+ggtitle("Wet Season")+ theme(axis.text.x=element_blank(),axis.ticks.x=element_blank())
+
+subset_wet_season <- subset(data_wet_season, select=(c(2,3,4,5,6)))
+heatmap.2(cor(subset_wet_season), Rowv = FALSE, Colv = FALSE, dendrogram = "none",
+          cellnote = round(cor(subset_wet_season),2),
+          notecol = "black", key = FALSE, trace = 'none', margins = c(12,12))
+```
+
+
+## Statistics: Wet season cluster
+```{r cars}
+data <- read_csv("unstandardized.data.csv")
+data_wet_season <-  data %>% 
+  filter (Cluster_type == 0)
+#new_elnino_buoy2 <- transform(new_elnino_buoy2, `New Date` = as.Date(as.character(`New Date`), "%Y%m%d"))
+#new_elnino_buoy2$MonthN <- as.numeric(format(as.Date(new_elnino_buoy2$New.Date),"%m")) # Month's number
+#new_elnino_buoy2 <- cbind(new_elnino_buoy2, dummy(new_elnino_buoy2$MonthN, sep = "_"))
+
+ZonalWinds =
+  c("Min" =  min(data_wet_season$zonal_winds),
+       "Max" =  max(data_wet_season$zonal_winds),
+       "Mean" =  mean(data_wet_season$zonal_winds),
+       "Median" =  median(data_wet_season$zonal_winds),
+  #     "Mode" =  mfv(data_wet_season$zonal_winds),
+       "Sd" =  sd(data_wet_season$zonal_winds),
+       "Var" =  var(data_wet_season$zonal_winds))
+
+MeridionalWinds =
+  c("Min" =  min(data_wet_season$meridional_winds),
+       "Max" =  max(data_wet_season$meridional_winds),
+       "Mean" =  mean(data_wet_season$meridional_winds),
+       "Median" =  median(data_wet_season$meridional_winds),
+  #     "Mode" =  mfv(data_wet_season$meridional_winds),
+       "Sd" =  sd(data_wet_season$meridional_winds),
+       "Var" =  var(data_wet_season$meridional_winds))
+
+Humidity =
+  c("Min" =  min(data_wet_season$Humidity),
+       "Max" =  max(data_wet_season$Humidity),
+       "Mean" =  mean(data_wet_season$Humidity),
+       "Median" =  median(data_wet_season$Humidity),
+  #     "Mode" =  mfv(data_wet_season$Humidity),
+       "Sd" =  sd(data_wet_season$Humidity),
+       "Var" =  var(data_wet_season$Humidity))
+
+AirTemp =
+  c("Min" =  min(data_wet_season$air_temp),
+       "Max" =  max(data_wet_season$air_temp),
+       "Mean" =  mean(data_wet_season$air_temp),
+       "Median" =  median(data_wet_season$air_temp),
+  #     "Mode" =  mfv(data_wet_season$air_temp),
+       "Sd" =  sd(data_wet_season$air_temp),
+       "Var" =  var(data_wet_season$air_temp))
+
+SeaSurfaceTemp =
+  c("Min" =  min(data_wet_season$sea_surface_temp),
+       "Max" =  max(data_wet_season$sea_surface_temp),
+       "Mean" =  mean(data_wet_season$sea_surface_temp),
+       "Median" =  median(data_wet_season$sea_surface_temp),
+  #     "Mode" =  mfv(data_wet_season$sea_surface_temp),
+       "Sd" =  sd(data_wet_season$sea_surface_temp),
+       "Var" =  var(data_wet_season$sea_surface_temp))
+
+summary2 <- cbind(ZonalWinds, MeridionalWinds, Humidity, AirTemp, SeaSurfaceTemp)
+summary2 <- round(summary, digits=2)
+
+```
+
+## Plots: Wet season cluster
+```{r pressure, echo=FALSE}
+data <- read_csv("unstandardized.data.csv")
+data_dry_season <-  data %>% 
+  filter (Cluster_type == 0)
+
+ggplot(data_dry_season, aes(y=zonal_winds)) + geom_boxplot(outlier.colour = "red")+ggtitle("Dry Season") + theme(axis.text.x=element_blank(),axis.ticks.x=element_blank())
+ggplot(data_dry_season, aes(y=meridional_winds)) + geom_boxplot(outlier.colour = "red")+ggtitle("Dry Season")+ theme(axis.text.x=element_blank(),axis.ticks.x=element_blank())
+ggplot(data_dry_season, aes(y=Humidity)) + geom_boxplot(outlier.colour = "red")+ggtitle("Dry Season")+ theme(axis.text.x=element_blank(),axis.ticks.x=element_blank())
+ggplot(data_dry_season, aes(y=air_temp)) + geom_boxplot(outlier.colour = "red")+ggtitle("Dry Season")+ theme(axis.text.x=element_blank(),axis.ticks.x=element_blank())
+ggplot(data_dry_season, aes(y=sea_surface_temp)) + geom_boxplot(outlier.colour = "red")+ggtitle("Dry Season")+ theme(axis.text.x=element_blank(),axis.ticks.x=element_blank())
+
+subset_dry_season <- subset(data_dry_season, select=(c(2,3,4,5,6)))
+heatmap.2(cor(subset_dry_season), Rowv = FALSE, Colv = FALSE, dendrogram = "none",
+          cellnote = round(cor(subset_dry_season),2),
+          notecol = "black", key = FALSE, trace = 'none', margins = c(12,12))
+```

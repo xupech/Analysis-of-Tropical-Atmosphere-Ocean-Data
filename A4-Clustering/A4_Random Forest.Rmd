@@ -1,0 +1,55 @@
+---
+title: "A4-Random Forest"
+author: "Pengcheng Xu"
+date: "3/27/2020"
+output: html_document
+---
+
+```{r}
+library(tidyverse)
+library(lubridate)
+library(readxl)
+library(rsample) 
+library(car)
+library(ggplot2)
+library(caret)
+library(dummies)
+library(leaps)
+library(zoo)
+library(BBmisc)
+library(rpart)
+library(rpart.plot)
+library(caret)
+library(randomForest)
+library(adabag)
+```
+
+```{r}
+df1 <- read_csv("std_elnino_interaction_squared_monthlydummies.csv")
+df1 <- df1 %>% select(Cluster_type, zonal_winds, meridional_winds, Humidity)
+
+df_split <- initial_split(df1, prop = .70)
+df_train <- training(df_split)
+df_test  <- testing(df_split)
+```
+
+```{r}
+df_split <- initial_split(df1, prop = .70)
+df_train <- training(df_split)
+df_test  <- testing(df_split)
+```
+
+```{r}
+df_train$Cluster_type <- as.factor(df_train$Cluster_type)
+```
+
+```{r}
+rf <- randomForest(Cluster_type ~ ., data = df_train, ntree = 500, 
+                   mtry = 4, nodesize = 5, importance = TRUE) 
+varImpPlot(rf, type = 1)
+rf.pred <- predict(rf, df_test)
+confusionMatrix(rf.pred, as.factor(df_test$Cluster_type))
+```
+
+
+

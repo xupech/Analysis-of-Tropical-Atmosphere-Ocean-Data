@@ -1,0 +1,123 @@
+---
+title: "A2: Regression Analysis"
+author: "Team Invincibles"
+date: "3/3/2020"
+output: html_document
+---
+
+```{r loadpackages, message=FALSE, warning=FALSE}
+library(tidyverse)
+library(lubridate)
+library(readxl)
+library(rsample) 
+library(car)
+library(ggplot2)
+library(caret)
+
+# Set seeed
+set.seed(123)
+
+# Set working directory
+setwd("~/Desktop/Spring 2020 Academics/BUS-212A-1 Analyzing Big Data II/A2")
+
+# Import the the data
+df1 <- read_csv("new_elnino.csv")
+```
+
+# Clean and sample data
+```{r import_data}
+# Select relevant variables
+df_elnino <- df1 %>% 
+  rename(zonal_winds  = `Zonal Winds`,
+         meridional_winds = `Meridional Winds`,
+         air_temp = `Air Temp`,
+         sea_surface_temp = `Sea Surface Temp`) %>% 
+  mutate(date = ymd(`New Date`)) %>% 
+  filter(buoy ==2) %>% 
+  select(-Observation,-Latitude, -Longitude, -diff, -date, -`New Date`,-buoy)
+
+# Create squared and interaction terms
+df_elnino_predictors <- df_elnino %>% 
+  select(-sea_surface_temp)
+
+# Select the y variable
+df_elnino_y <- df_elnino %>% 
+  select(sea_surface_temp)
+
+# Square of predictors
+df_elnino_predictors_squared <- df_elnino_predictors^2
+colnames(df_elnino_predictors_squared) <- paste(colnames(df_elnino_predictors_squared),"squared",sep = "_")
+
+# All interactions of predictors
+df_elnino_predictors_int <- as.data.frame(model.matrix( ~.^2, data=df_elnino_predictors)) %>% 
+  select(-`(Intercept)`) 
+
+# All predictors and y
+df_elnino_2 <- cbind(df_elnino_y, df_elnino_predictors_int,
+                     df_elnino_predictors_squared)
+
+# Standardize the data
+df_elnino_2 <-  data.frame(scale(df_elnino_2))
+ 
+# Sampling
+# Sampling: 75% Training data and 25% Testing data
+df_elnino_split <- initial_split(df_elnino_2, prop = .75)
+df_elnino_train <- training(df_elnino_split)
+df_elnino_test  <- testing(df_elnino_split)
+```
+
+# Regression Analysis
+```{r regression}
+lm1 <- lm(sea_surface_temp ~., data = df_elnino_train)
+summary(lm1)
+
+# Find the best model
+best_mod <- step(lm1, direction = "backward")
+summary(best_mod)
+
+# Check for multicolinearity
+vif_best_mod <- vif(best_mod)
+print(vif_best_mod)
+
+vif.df <- vif_best_mod
+write.csv(vif.df,"vif.df.csv")
+# plot(best_mod)
+
+# Prediction
+# predict values for test data
+pred <- predict(best_mod, df_elnino_test)
+
+# RMSPE
+RMSPE <- RMSE(pred, df_elnino_test$sea_surface_temp)
+RMSPE
+```
+
+# Visualizations
+```{r Visualizations}
+# table
+y_2 <- data.frame(sort(table(df1$buoy))) %>% 
+  tail(n=20)
+
+ 
+# Plots 
+ plot_1 <-  ggplot(data = y_2, aes(x=Var1, y = Freq, fill = Freq)) +geom_col() + coord_flip() +
+   geom_text(aes(label=Freq,hjust= 1, vjust=0.3), size=4) +
+   scale_y_continuous(expand = c(0, 0)) +
+   scale_fill_gradient(low = "light blue", high = "blue") +
+   theme(
+     # Remove legend
+     legend.position = "none",
+     # Remove panel border
+     panel.border = element_blank(),  
+     # Remove panel grid lines
+     panel.grid.major = element_blank(),
+     panel.grid.minor = element_blank(),
+     # Remove panel background
+     panel.background = element_blank(),
+     # Add axis line
+     axis.line = element_line(colour = "grey")) +
+   ylab("Frequency") +
+   xlab("Buoy") +
+   ggtitle("Frequency of Observations by Buoy: Top 20")
+ plot_1
+ ```

@@ -1,0 +1,53 @@
+---
+title: "A4-LR"
+author: "Charlie Zheng"
+date: "3/25/2020"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+elnino <- read.csv("std_elnino_interaction_squared_monthlydummies.csv")
+library(dplyr)
+library(gains)
+library(caret)
+library(ROCR)
+set.seed(10)
+```
+
+```{r}
+#get training and testing data
+trainindex <- sample(c(dim(elnino)[1]),dim(elnino)[1]*0.7)
+train <- elnino[trainindex,]
+valid <- elnino[-trainindex,]
+```
+
+```{r}
+#outliers detection
+km <- kmeans(train,centers = 2)
+centers = km$centers[km$cluster,]
+distance <- sqrt((train-centers)^2)
+ordered <- order(distance,decreasing = TRUE)
+head(ordered,100)
+#there is no significant outlier
+```
+
+```{r}
+#logistic regression
+logit <- glm(Cluster_type~meridional_winds+zonal_winds+Humidity+month_4+month_5+month_6+month_7+month_8+month_9,data = train,family = binomial(link = "logit"))
+options(scipen=999)
+summary(logit)
+```
+
+```{r}
+#prediction
+logitpred <- predict(logit, valid[,-1], type = "response")
+predict <- ifelse(logitpred> 0.5, "1", "0")
+confusionMatrix(as.factor(predict), as.factor(valid$Cluster_type))
+```
+
+```{r}
+#ROC
+ROCRpred <- prediction(logitpred, valid$Cluster_type)
+ROCRperf <- performance(ROCRpred, 'tpr','fpr')
+plot(ROCRperf, colorize = TRUE, text.adj = c(-0.2,1.7))
+```

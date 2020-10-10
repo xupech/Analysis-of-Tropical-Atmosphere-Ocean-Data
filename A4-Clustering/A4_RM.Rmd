@@ -1,0 +1,149 @@
+---
+title: "A4_Clustering"
+author: "Team Invincibles"
+date: "3/27/2020"
+output: html_document
+---
+
+```{r loadpackages, message=FALSE, warning=FALSE}
+library(ggplot2)
+library(tidyverse)
+library(plotly)
+library(readxl)
+library(FNN)
+library(caret)
+library(gmodels)
+library(fastDummies)
+
+
+# Set the seed
+set.seed(10)
+
+# Set working directory
+setwd("~/Desktop/Spring 2020 Academics/BUS-212A-1 Analyzing Big Data II/A4")
+```
+
+# Clean and sample data
+```{r import_data}
+# Import the data
+df_elnino <- read_csv("unstandardized.data.csv")
+
+# Select relevant variables
+df_elnino <- df_elnino %>% 
+  select(Cluster_type, everything(), -X1, -date, -buoy)
+
+df_elnino_month <- df_elnino %>% 
+  select(month) %>% 
+  mutate(month = factor(month)) %>% 
+  dummy_cols(select_columns = "month") %>% 
+  select(-month)
+  
+# Create squared and interaction terms
+df_elnino_predictors <- df_elnino %>% 
+  select(-Cluster_type, -month) 
+
+# Select the y variable
+df_elnino_y <- df_elnino %>% 
+  select(Cluster_type)
+
+# Square of predictors
+df_elnino_predictors_squared <- df_elnino_predictors^2
+colnames(df_elnino_predictors_squared) <- paste(colnames(df_elnino_predictors_squared),"squared",sep = "_")
+
+# All interactions of predictors
+df_elnino_predictors_int <- as.data.frame(model.matrix( ~.^2, data=df_elnino_predictors)) %>% 
+  select(-`(Intercept)`) 
+
+# Standardize predictors
+df_elnino_predictors_int <- scale(df_elnino_predictors_int)
+
+# y and all predictors
+df_elnino_2 <- cbind(df_elnino_y, df_elnino_predictors_int,
+                     df_elnino_predictors_squared, df_elnino_month)
+write.csv(df_elnino_2, "std_elnino_interaction_sq_monthlydummies.csv")
+
+# Select variables
+df_elnino_2 <- df_elnino_2 %>% 
+  select(Cluster_type, meridional_winds, zonal_winds, 
+         Humidity, month_4, month_5, month_6, month_7, month_8, month_9)
+
+# Training: 0.70,validating: 0.15,Testing: 0.15
+split_index <- sample(1:3, size = nrow(df_elnino_2),
+                      prob = c(0.7, 0.15, 0.15),
+                      replace = TRUE)
+
+# Create a training, validation and tests from the original data frame 
+df_elnino_train <- df_elnino_2[split_index == 1, ]  
+df_elnino_valid <- df_elnino_2[split_index == 2, ] 
+df_elnino_test <- df_elnino_2[split_index == 3, ] 
+
+# Remove used data
+rm(df_elnino, df_elnino_2, df_elnino_predictors, df_elnino_predictors_int,
+   df_elnino_predictors_squared, df_elnino_y, df_elnino_month)
+
+# create labels for training, valid, and test data
+df_elnino_train_labels = df_elnino_train[, 1]
+df_elnino_valid_labels = df_elnino_valid[, 1]
+df_elnino_test_labels = df_elnino_test[, 1]
+```
+
+# Clustering
+```{r clustering}
+
+# initialize a data frame with two columns: k, and accuracy.
+accuracy.df <- data.frame(k = seq(1, 20, 1), accuracy = rep(0, 20))
+
+# Compute knn for different k on validation.
+for(i in 1:20) {    
+  knn_valid_pred = knn(train  = df_elnino_train,
+                       cl    = df_elnino_train_labels,
+                       test  = df_elnino_valid,
+                       k     = i)
+  accuracy.df[i, 2] <- confusionMatrix(data = knn_valid_pred, 
+                                       reference = factor(df_elnino_valid$Cluster_type))$overall[1] 
+}
+
+# Accuracy table
+accuracy.df
+
+# best_k
+best_k <- which.max(accuracy.df$accuracy)
+best_k
+
+# Highest accuracy
+best_accuracy <- max(accuracy.df$accuracy)
+best_accuracy
+
+# Plotting yields Number of Neighbours Vs accuracy
+plot_1 <- ggplot(data = accuracy.df, aes(x = k, y = accuracy )) + 
+  geom_point(size = 2, color = "blue") +
+  geom_line(size = 1, color = "blue", linetype = 2) +
+  geom_text(aes(label=round(accuracy,3),hjust= 0.5, vjust=-1), size=3) +
+  theme(
+    text = element_text(size=20),
+    panel.border = element_blank(),  
+    panel.grid.minor = element_blank(),
+    panel.background = element_blank(),
+    axis.line = element_line(colour = "black")) +
+  xlab("Number of neighbors (K)") +
+  ylab("accuracy") +
+  ggtitle("KNN Accuracy")
+plot_1
+
+
+# k = 3 results
+knn_test_pred = knn(train  = df_elnino_train,
+                    cl    = df_elnino_train_labels,
+                    test  = df_elnino_test,
+                    k     = 1)
+# Confusion matrix
+k_3_confus_mat <- confusionMatrix(data     = knn_test_pred, 
+                                  reference = factor(df_elnino_test$Cluster_type)) 
+k_3_confus_mat
+
+# Compute RMSPE
+# RMSPE
+RMSPE_knn_test <- round(RMSE(as.numeric(knn_test_pred),df_elnino_test$Cluster_type),3)
+RMSPE_knn_test
+```
+
